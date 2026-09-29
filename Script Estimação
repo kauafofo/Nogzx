@@ -1,0 +1,2224 @@
+--// 🐾 PET MANAGER
+--// AUTO COMPRA + AUTO FUSION + EQUIP BEST
+--// SECRET + TODOS OS MYTHICS
+--// MOBILE / ARRASTÁVEL / REABRIR
+--// DESIGN KAUAXSCRIPTS
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local plr = Players.LocalPlayer
+local PlayerGui = plr:WaitForChild("PlayerGui")
+
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local Bridge = remotes:WaitForChild("Bridge")
+
+local petsFolder =
+	workspace:WaitForChild("Client")
+		:WaitForChild("Spawn")
+		:WaitForChild("Pets")
+
+--==================================================
+-- CONFIG
+--==================================================
+
+local autoBuy = false
+local autoFuse = false
+local autoEquipBest = false
+local fusionBusy = false
+
+local MAX_FUSION_WEIGHT = 50000
+local PROTECTED_WEIGHT = 1
+
+local rarities = {
+	Common = false,
+	Uncommon = false,
+	Rare = false,
+	Epic = false,
+	Legendary = false,
+	Mythic = false,
+	Secret = false
+}
+
+local rarityList = {
+	"Common",
+	"Uncommon",
+	"Rare",
+	"Epic",
+	"Legendary",
+	"Mythic",
+	"Secret"
+}
+
+local inventoryPets = {}
+local fusionCooldown = {}
+
+--==================================================
+-- CORES
+--==================================================
+
+local BG = Color3.fromRGB(10,8,16)
+local PANEL = Color3.fromRGB(16,12,24)
+local CARD = Color3.fromRGB(25,19,35)
+local CARD2 = Color3.fromRGB(31,23,43)
+
+local RED = Color3.fromRGB(255,45,75)
+local RED2 = Color3.fromRGB(190,25,60)
+
+local PURPLE = Color3.fromRGB(145,55,255)
+local PURPLE2 = Color3.fromRGB(90,35,180)
+
+local WHITE = Color3.fromRGB(245,245,250)
+local GRAY = Color3.fromRGB(160,155,170)
+
+local rarityColors = {
+	Common = Color3.fromRGB(100,100,110),
+	Uncommon = Color3.fromRGB(35,170,75),
+	Rare = Color3.fromRGB(40,100,220),
+	Epic = Color3.fromRGB(155,55,240),
+	Legendary = Color3.fromRGB(220,165,30),
+	Mythic = Color3.fromRGB(240,40,90),
+	Secret = Color3.fromRGB(170,45,255)
+}
+
+--==================================================
+-- LIMPAR GUI ANTIGA
+--==================================================
+
+local old = PlayerGui:FindFirstChild("PetCompact")
+
+if old then
+	old:Destroy()
+end
+
+--==================================================
+-- GUI
+--==================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "PetCompact"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = PlayerGui
+
+--==================================================
+-- MAIN
+--==================================================
+
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0,310,0,390)
+main.Position = UDim2.new(0.5,-155,0.5,-195)
+main.BackgroundColor3 = BG
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = true
+main.Parent = gui
+
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,14)
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = RED
+stroke.Thickness = 1.5
+stroke.Transparency = 0.15
+stroke.Parent = main
+
+--==================================================
+-- GRADIENT
+--==================================================
+
+local gradient = Instance.new("UIGradient")
+
+gradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(
+		0,
+		Color3.fromRGB(18,7,25)
+	),
+
+	ColorSequenceKeypoint.new(
+		0.5,
+		Color3.fromRGB(9,9,18)
+	),
+
+	ColorSequenceKeypoint.new(
+		1,
+		Color3.fromRGB(28,5,17)
+	)
+})
+
+gradient.Rotation = 25
+gradient.Parent = main
+
+--==================================================
+-- GRID
+--==================================================
+
+local grid = Instance.new("Frame")
+grid.Size = UDim2.new(1,0,1,0)
+grid.BackgroundTransparency = 1
+grid.ClipsDescendants = true
+grid.ZIndex = 0
+grid.Parent = main
+
+for x = 0,310,20 do
+
+	local line = Instance.new("Frame")
+
+	line.Size = UDim2.new(0,1,1,0)
+	line.Position = UDim2.new(0,x,0,0)
+
+	line.BackgroundColor3 =
+		Color3.fromRGB(50,18,55)
+
+	line.BackgroundTransparency = 0.55
+	line.BorderSizePixel = 0
+	line.Parent = grid
+
+end
+
+for y = 0,390,20 do
+
+	local line = Instance.new("Frame")
+
+	line.Size = UDim2.new(1,0,0,1)
+	line.Position = UDim2.new(0,0,0,y)
+
+	line.BackgroundColor3 =
+		Color3.fromRGB(50,18,55)
+
+	line.BackgroundTransparency = 0.55
+	line.BorderSizePixel = 0
+	line.Parent = grid
+
+end
+
+--==================================================
+-- PARTICLES
+--==================================================
+
+local particles = {}
+
+for i = 1,22 do
+
+	local p = Instance.new("Frame")
+
+	local size = math.random(2,5)
+
+	p.Size = UDim2.new(
+		0,
+		size,
+		0,
+		size
+	)
+
+	p.Position = UDim2.new(
+		math.random(),
+		0,
+		math.random(),
+		0
+	)
+
+	p.BackgroundColor3 =
+		i % 2 == 0 and RED or PURPLE
+
+	p.BackgroundTransparency =
+		math.random(20,65)/100
+
+	p.BorderSizePixel = 0
+	p.ZIndex = 1
+	p.Parent = grid
+
+	Instance.new("UICorner",p).CornerRadius =
+		UDim.new(1,0)
+
+	table.insert(particles,p)
+
+end
+
+task.spawn(function()
+
+	while gui.Parent do
+
+		for _,p in ipairs(particles) do
+
+			local target =
+				UDim2.new(
+					math.random(),
+					0,
+					math.random(),
+					0
+				)
+
+			local tween = TweenService:Create(
+				p,
+				TweenInfo.new(
+					math.random(20,40)/10,
+					Enum.EasingStyle.Sine,
+					Enum.EasingDirection.InOut
+				),
+				{
+					Position = target,
+					BackgroundTransparency =
+						math.random(15,70)/100
+				}
+			)
+
+			tween:Play()
+
+		end
+
+		task.wait(2)
+
+	end
+
+end)
+
+--==================================================
+-- DRAG
+--==================================================
+
+local dragging = false
+local dragStart
+local startPos
+
+main.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1
+
+	or input.UserInputType ==
+		Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+
+		input.Changed:Connect(function()
+
+			if input.UserInputState ==
+				Enum.UserInputState.End then
+
+				dragging = false
+
+			end
+
+		end)
+
+	end
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+	if not dragging then
+		return
+	end
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseMovement
+
+	or input.UserInputType ==
+		Enum.UserInputType.Touch then
+
+		local delta =
+			input.Position - dragStart
+
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+
+	end
+
+end)
+
+--==================================================
+-- TITLE
+--==================================================
+
+local title = Instance.new("TextLabel")
+
+title.Size = UDim2.new(1,-55,0,32)
+title.Position = UDim2.new(0,12,0,7)
+
+title.BackgroundTransparency = 1
+
+title.Text = "🐾 PET MANAGER"
+
+title.TextColor3 = WHITE
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+
+title.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+title.ZIndex = 5
+title.Parent = main
+
+local subtitle = Instance.new("TextLabel")
+
+subtitle.Size = UDim2.new(1,-24,0,20)
+subtitle.Position = UDim2.new(0,12,0,35)
+
+subtitle.BackgroundTransparency = 1
+
+subtitle.Text = "Creator: KauaXscripts"
+
+subtitle.TextColor3 = GRAY
+subtitle.TextSize = 9
+subtitle.Font = Enum.Font.Gotham
+
+subtitle.TextXAlignment =
+	Enum.TextXAlignment.Left
+
+subtitle.ZIndex = 5
+subtitle.Parent = main
+
+--==================================================
+-- CLOSE
+--==================================================
+
+local close = Instance.new("TextButton")
+
+close.Size = UDim2.new(0,32,0,32)
+close.Position = UDim2.new(1,-40,0,7)
+
+close.BackgroundColor3 =
+	Color3.fromRGB(100,25,45)
+
+close.Text = "X"
+
+close.TextColor3 = WHITE
+close.TextSize = 14
+close.Font = Enum.Font.GothamBold
+
+close.ZIndex = 10
+close.Parent = main
+
+Instance.new("UICorner",close).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- TABS
+--==================================================
+
+local tabs = Instance.new("Frame")
+
+tabs.Size = UDim2.new(1,-20,0,38)
+tabs.Position = UDim2.new(0,10,0,62)
+
+tabs.BackgroundTransparency = 1
+tabs.ZIndex = 5
+tabs.Parent = main
+
+local tabLayout = Instance.new("UIListLayout")
+
+tabLayout.FillDirection =
+	Enum.FillDirection.Horizontal
+
+tabLayout.HorizontalAlignment =
+	Enum.HorizontalAlignment.Center
+
+tabLayout.Padding =
+	UDim.new(0,5)
+
+tabLayout.Parent = tabs
+
+local function makeTab(textValue)
+
+	local b = Instance.new("TextButton")
+
+	b.Size = UDim2.new(
+		0,
+		90,
+		0,
+		35
+	)
+
+	b.BackgroundColor3 = CARD
+
+	b.Text = textValue
+
+	b.TextColor3 = WHITE
+
+	b.TextSize = 10
+
+	b.Font = Enum.Font.GothamBold
+
+	b.AutoButtonColor = false
+
+	b.ZIndex = 6
+
+	b.Parent = tabs
+
+	Instance.new("UICorner",b).CornerRadius =
+		UDim.new(0,8)
+
+	return b
+
+end
+
+local buyTab =
+	makeTab("🛒 COMPRA")
+
+local fuseTab =
+	makeTab("🔥 FUSÃO")
+
+local petsTab =
+	makeTab("⚔️ PETS")
+
+--==================================================
+-- PAGES
+--==================================================
+
+local function makePage()
+
+	local page = Instance.new("ScrollingFrame")
+
+	page.Size = UDim2.new(
+		1,-20,
+		1,-110
+	)
+
+	page.Position =
+		UDim2.new(0,10,0,105)
+
+	page.BackgroundTransparency = 1
+
+	page.BorderSizePixel = 0
+
+	page.ScrollBarThickness = 3
+
+	page.CanvasSize =
+		UDim2.new(0,0,0,0)
+
+	page.ZIndex = 5
+
+	page.Visible = false
+
+	page.Parent = main
+
+	local layout = Instance.new("UIListLayout")
+
+	layout.Padding =
+		UDim.new(0,7)
+
+	layout.HorizontalAlignment =
+		Enum.HorizontalAlignment.Center
+
+	layout.Parent = page
+
+	return page,layout
+
+end
+
+local buyPage,buyLayout =
+	makePage()
+
+local fusePage,fuseLayout =
+	makePage()
+
+local petsPage,petsLayout =
+	makePage()
+
+--==================================================
+-- BUTTON HELPER
+--==================================================
+
+local function makeButton(parent,textValue)
+
+	local b = Instance.new("TextButton")
+
+	b.Size = UDim2.new(
+		1,-5,
+		0,
+		38
+	)
+
+	b.BackgroundColor3 =
+		Color3.fromRGB(75,25,40)
+
+	b.Text = textValue
+
+	b.TextColor3 = WHITE
+
+	b.TextSize = 11
+
+	b.Font = Enum.Font.GothamBold
+
+	b.AutoButtonColor = false
+
+	b.ZIndex = 6
+
+	b.Parent = parent
+
+	Instance.new("UICorner",b).CornerRadius =
+		UDim.new(0,8)
+
+	return b
+
+end
+
+--==================================================
+-- STATUS COMPRA
+--==================================================
+
+local status = Instance.new("TextLabel")
+
+status.Size = UDim2.new(1,-5,0,35)
+
+status.BackgroundColor3 = CARD
+
+status.Text =
+	"● STATUS: PARADO"
+
+status.TextColor3 = GRAY
+
+status.TextSize = 11
+
+status.Font = Enum.Font.GothamBold
+
+status.ZIndex = 6
+
+status.Parent = buyPage
+
+Instance.new("UICorner",status).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- AUTO BUY
+--==================================================
+
+local buyButton =
+	makeButton(
+		buyPage,
+		"🛒 AUTO COMPRA: OFF"
+	)
+
+--==================================================
+-- RARITY TITLE
+--==================================================
+
+local rarityTitle = Instance.new("TextLabel")
+
+rarityTitle.Size =
+	UDim2.new(1,-5,0,30)
+
+rarityTitle.BackgroundTransparency = 1
+
+rarityTitle.Text =
+	"⭐ RARIDADES PARA COMPRAR"
+
+rarityTitle.TextColor3 = WHITE
+
+rarityTitle.TextSize = 11
+
+rarityTitle.Font =
+	Enum.Font.GothamBold
+
+rarityTitle.ZIndex = 6
+
+rarityTitle.Parent = buyPage
+
+--==================================================
+-- RARITY BUTTONS
+--==================================================
+
+local rarityButtons = {}
+
+for _,rarity in ipairs(rarityList) do
+
+	local b =
+		makeButton(
+			buyPage,
+			"⚪ "..rarity..": OFF"
+		)
+
+	b.BackgroundColor3 =
+		Color3.fromRGB(55,25,45)
+
+	b.MouseButton1Click:Connect(function()
+
+		rarities[rarity] =
+			not rarities[rarity]
+
+		if rarities[rarity] then
+
+			b.Text =
+				"🟢 "..rarity..": ON"
+
+			b.BackgroundColor3 =
+				rarityColors[rarity]
+
+		else
+
+			b.Text =
+				"⚪ "..rarity..": OFF"
+
+			b.BackgroundColor3 =
+				Color3.fromRGB(55,25,45)
+
+		end
+
+	end)
+
+	rarityButtons[rarity] = b
+
+end
+
+--==================================================
+-- FUSÃO
+--==================================================
+
+local fuseStatus = Instance.new("TextLabel")
+
+fuseStatus.Size =
+	UDim2.new(1,-5,0,35)
+
+fuseStatus.BackgroundColor3 = CARD
+
+fuseStatus.Text =
+	"● FUSÃO: PARADA"
+
+fuseStatus.TextColor3 = GRAY
+
+fuseStatus.TextSize = 10
+
+fuseStatus.Font =
+	Enum.Font.GothamBold
+
+fuseStatus.ZIndex = 6
+
+fuseStatus.Parent = fusePage
+
+Instance.new("UICorner",fuseStatus).CornerRadius =
+	UDim.new(0,8)
+
+local fuseButton =
+	makeButton(
+		fusePage,
+		"🔥 AUTO FUSION: OFF"
+	)
+
+local fuseInfo = Instance.new("TextLabel")
+
+fuseInfo.Size =
+	UDim2.new(1,-5,0,45)
+
+fuseInfo.BackgroundColor3 =
+	CARD
+
+fuseInfo.Text =
+	"🔥 3 PETS IGUAIS\n"..
+	"🚫 1 KG NÃO FUNDE\n"..
+	"🚫 50.000 KG+ NÃO FUNDE"
+
+fuseInfo.TextColor3 = WHITE
+
+fuseInfo.TextSize = 10
+
+fuseInfo.Font =
+	Enum.Font.GothamBold
+
+fuseInfo.TextWrapped = true
+
+fuseInfo.ZIndex = 6
+
+fuseInfo.Parent = fusePage
+
+Instance.new("UICorner",fuseInfo).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- EQUIP BEST
+--==================================================
+
+local equipButton =
+	makeButton(
+		petsPage,
+		"⚔️ EQUIP BEST: OFF"
+	)
+
+local petCount = Instance.new("TextLabel")
+
+petCount.Size =
+	UDim2.new(1,-5,0,35)
+
+petCount.BackgroundColor3 = CARD
+
+petCount.Text =
+	"🐾 PETS NO INVENTÁRIO: 0"
+
+petCount.TextColor3 = WHITE
+
+petCount.TextSize = 10
+
+petCount.Font =
+	Enum.Font.GothamBold
+
+petCount.ZIndex = 6
+
+petCount.Parent = petsPage
+
+Instance.new("UICorner",petCount).CornerRadius =
+	UDim.new(0,8)
+
+--==================================================
+-- GET PROMPT
+--==================================================
+
+local function getPrompt(pet)
+
+	for _,obj in ipairs(
+		pet:GetDescendants()
+	) do
+
+		if obj:IsA("ProximityPrompt") then
+
+			local action =
+				string.lower(
+					tostring(obj.ActionText or "")
+				)
+
+			if action == "buy pet"
+			or string.find(
+				action,
+				"buy",
+				1,
+				true
+			)
+			or string.find(
+				action,
+				"compr",
+				1,
+				true
+			) then
+
+				return obj
+
+			end
+
+		end
+
+	end
+
+	return nil
+
+end
+
+--==================================================
+-- RARITY
+--==================================================
+
+local function getRarity(pet)
+
+	local texto = ""
+
+	--==============================================
+	-- PRIMEIRO: ATTRIBUTES
+	--==============================================
+
+	local directAttributes = {
+		"Rarity",
+		"RarityName",
+		"rarity",
+		"rarityName"
+	}
+
+	for _,attr in ipairs(directAttributes) do
+
+		local value =
+			pet:GetAttribute(attr)
+
+		if value ~= nil then
+
+			texto =
+				texto.." "..tostring(value)
+
+		end
+
+	end
+
+	--==============================================
+	-- DESCENDENTES
+	--==============================================
+
+	for _,obj in ipairs(
+		pet:GetDescendants()
+	) do
+
+		-- Attributes
+		for _,attr in ipairs(directAttributes) do
+
+			local value =
+				obj:GetAttribute(attr)
+
+			if value ~= nil then
+
+				texto =
+					texto.." "..tostring(value)
+
+			end
+
+		end
+
+		-- Textos
+		if obj:IsA("TextLabel")
+		or obj:IsA("TextButton")
+		or obj:IsA("TextBox") then
+
+			local ok,value =
+				pcall(function()
+					return obj.Text
+				end)
+
+			if ok and value then
+
+				texto =
+					texto.." "..tostring(value)
+
+			end
+
+		end
+
+	end
+
+	texto =
+		string.lower(texto)
+
+	--==============================================
+	-- SECRET
+	--==============================================
+
+	if string.find(
+		texto,
+		"secret",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"secreto",
+		1,
+		true
+	) then
+
+		return "Secret"
+
+	end
+
+	--==============================================
+	-- MYTHIC
+	--==============================================
+
+	if string.find(
+		texto,
+		"mythical",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"mythic",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"mítico",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"mitico",
+		1,
+		true
+	) then
+
+		return "Mythic"
+
+	end
+
+	--==============================================
+	-- LEGENDARY
+	--==============================================
+
+	if string.find(
+		texto,
+		"legendary",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"lendário",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"lendario",
+		1,
+		true
+	) then
+
+		return "Legendary"
+
+	end
+
+	--==============================================
+	-- EPIC
+	--==============================================
+
+	if string.find(
+		texto,
+		"epic",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"épico",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"epico",
+		1,
+		true
+	) then
+
+		return "Epic"
+
+	end
+
+	--==============================================
+	-- UNCOMMON
+	--==============================================
+
+	if string.find(
+		texto,
+		"uncommon",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"incomum",
+		1,
+		true
+	) then
+
+		return "Uncommon"
+
+	end
+
+	--==============================================
+	-- RARE
+	--==============================================
+
+	if string.find(
+		texto,
+		"rare",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"raro",
+		1,
+		true
+	) then
+
+		return "Rare"
+
+	end
+
+	--==============================================
+	-- COMMON
+	--==============================================
+
+	if string.find(
+		texto,
+		"common",
+		1,
+		true
+	)
+	or string.find(
+		texto,
+		"comum",
+		1,
+		true
+	) then
+
+		return "Common"
+
+	end
+
+	return "Unknown"
+
+end
+
+--==================================================
+-- NOME
+--==================================================
+
+local function getName(pet,prompt)
+
+	local nomes = {}
+
+	if prompt
+	and prompt.ObjectText
+	and prompt.ObjectText ~= "" then
+
+		table.insert(
+			nomes,
+			tostring(prompt.ObjectText)
+		)
+
+	end
+
+	local petName =
+		pet:GetAttribute("PetName")
+
+	if petName then
+
+		table.insert(
+			nomes,
+			tostring(petName)
+		)
+
+	end
+
+	table.insert(
+		nomes,
+		tostring(pet.Name)
+	)
+
+	for _,nome in ipairs(nomes) do
+
+		nome =
+			nome:gsub(
+				"%$[%d%.,]+",
+				""
+			)
+
+		nome =
+			nome:gsub(
+				"%b()",
+				""
+			)
+
+		nome =
+			nome:gsub(
+				"%s+",
+				" "
+			)
+
+		nome =
+			nome:gsub(
+				"^%s+",
+				""
+			)
+
+		nome =
+			nome:gsub(
+				"%s+$",
+				""
+			)
+
+		if nome ~= "" then
+			return nome
+		end
+
+	end
+
+	return tostring(pet.Name)
+
+end
+
+--==================================================
+-- NORMALIZAR
+--==================================================
+
+local function normalizeName(name)
+
+	return string.lower(
+		tostring(name or "")
+	):gsub("%s+","")
+	:gsub("%-","")
+	:gsub("_","")
+
+end
+
+--==================================================
+-- COMPRAR
+--==================================================
+
+local function buyPet(pet)
+
+	local prompt =
+		getPrompt(pet)
+
+	if not prompt then
+		return
+	end
+
+	local rarity =
+		getRarity(pet)
+
+	local name =
+		getName(pet,prompt)
+
+	local normalized =
+		normalizeName(name)
+
+	--==============================================
+	-- SECRET
+	--==============================================
+
+	if rarity == "Secret" then
+
+		if not rarities.Secret then
+			return
+		end
+
+	--==============================================
+	-- MYTHIC
+	--==============================================
+
+	elseif rarity == "Mythic" then
+
+		if not rarities.Mythic then
+			return
+		end
+
+	--==============================================
+	-- OUTRAS RARIDADES
+	--==============================================
+
+	elseif rarity == "Common"
+	or rarity == "Uncommon"
+	or rarity == "Rare"
+	or rarity == "Epic"
+	or rarity == "Legendary" then
+
+		if not rarities[rarity] then
+			return
+		end
+
+	else
+
+		return
+
+	end
+
+	if not prompt.Parent then
+		return
+	end
+
+	if not prompt.Enabled then
+		return
+	end
+
+	pcall(function()
+
+		if typeof(fireproximityprompt) ==
+			"function" then
+
+			fireproximityprompt(prompt)
+
+		else
+
+			prompt:InputHoldBegin()
+
+			task.wait(
+				math.max(
+					prompt.HoldDuration,
+					0.1
+				)
+			)
+
+			prompt:InputHoldEnd()
+
+		end
+
+	end)
+
+end
+
+--==================================================
+-- AUTO BUY BUTTON
+--==================================================
+
+buyButton.MouseButton1Click:Connect(function()
+
+	autoBuy =
+		not autoBuy
+
+	if autoBuy then
+
+		buyButton.Text =
+			"🛒 AUTO COMPRA: ON"
+
+		buyButton.BackgroundColor3 =
+			Color3.fromRGB(35,120,65)
+
+		status.Text =
+			"● STATUS: COMPRANDO"
+
+		status.TextColor3 =
+			Color3.fromRGB(80,255,120)
+
+	else
+
+		buyButton.Text =
+			"🛒 AUTO COMPRA: OFF"
+
+		buyButton.BackgroundColor3 =
+			Color3.fromRGB(75,25,40)
+
+		status.Text =
+			"● STATUS: PARADO"
+
+		status.TextColor3 = GRAY
+
+	end
+
+end)
+
+--==================================================
+-- LOOP AUTO BUY
+--==================================================
+
+task.spawn(function()
+
+	while task.wait(0.08) do
+
+		if autoBuy then
+
+			pcall(function()
+
+				for _,pet in ipairs(
+					petsFolder:GetChildren()
+				) do
+
+					if not autoBuy then
+						break
+					end
+
+					buyPet(pet)
+
+				end
+
+			end)
+
+		end
+
+	end
+
+end)
+
+--==================================================
+-- EQUIP BEST
+--==================================================
+
+local function equipBest()
+
+	pcall(function()
+
+		Bridge:FireServer(
+			"Bases",
+			"Pets",
+			"EquipBest"
+		)
+
+	end)
+
+end
+
+equipButton.MouseButton1Click:Connect(function()
+
+	autoEquipBest =
+		not autoEquipBest
+
+	if autoEquipBest then
+
+		equipButton.Text =
+			"⚔️ EQUIP BEST: ON"
+
+		equipButton.BackgroundColor3 =
+			Color3.fromRGB(35,120,65)
+
+		equipBest()
+
+	else
+
+		equipButton.Text =
+			"⚔️ EQUIP BEST: OFF"
+
+		equipButton.BackgroundColor3 =
+			Color3.fromRGB(75,25,40)
+
+	end
+
+end)
+
+task.spawn(function()
+
+	while task.wait(1) do
+
+		if autoEquipBest then
+			equipBest()
+		end
+
+	end
+
+end)
+
+--==================================================
+-- PESO
+--==================================================
+
+local function getWeight(pet)
+
+	if not pet then
+		return 0
+	end
+
+	local weight =
+		pet.Weight
+
+	if type(weight) == "number" then
+		return weight
+	end
+
+	if type(weight) == "string" then
+
+		local clean =
+			weight:gsub(
+				"[^%d%.%-]",
+				""
+			)
+
+		local n =
+			tonumber(clean)
+
+		if n then
+			return n
+		end
+
+	end
+
+	-- tenta atributos
+	local attr =
+		pet:GetAttribute("PetWeight")
+
+	if type(attr) == "number" then
+		return attr
+	end
+
+	if type(attr) == "string" then
+
+		local n =
+			tonumber(
+				attr:gsub(
+					"[^%d%.%-]",
+					""
+				)
+			)
+
+		if n then
+			return n
+		end
+
+	end
+
+	return 0
+
+end
+
+--==================================================
+-- PODE FUNDIR
+--==================================================
+
+local function podeFundir(pet)
+
+	if not pet then
+		return false
+	end
+
+	if not pet.UUID then
+		return false
+	end
+
+	local uuid =
+		tostring(pet.UUID)
+
+	if fusionCooldown[uuid] then
+		return false
+	end
+
+	local weight =
+		getWeight(pet)
+
+	-- 1 KG PROTEGIDO
+	if weight == PROTECTED_WEIGHT then
+		return false
+	end
+
+	-- 50.000 KG OU MAIS PROTEGIDO
+	if weight >= MAX_FUSION_WEIGHT then
+		return false
+	end
+
+	return true
+
+end
+
+--==================================================
+-- PATCH INVENTÁRIO
+--==================================================
+
+local function processPetPatch(patch)
+
+	if type(patch) ~= "table" then
+		return
+	end
+
+	local path =
+		patch.Path
+
+	if type(path) ~= "table" then
+		return
+	end
+
+	if path[1] ~= "PetsBackpack" then
+		return
+	end
+
+	local uuid =
+		path[2]
+
+	if not uuid then
+		return
+	end
+
+	uuid =
+		tostring(uuid)
+
+	if patch.Delete == true then
+
+		inventoryPets[uuid] = nil
+		fusionCooldown[uuid] = nil
+
+		return
+
+	end
+
+	local value =
+		patch.Value
+
+	if type(value) == "table"
+	and value.Name then
+
+		inventoryPets[uuid] = {
+
+			UUID = uuid,
+
+			Name =
+				tostring(value.Name),
+
+			Type =
+				value.Type
+				and tostring(value.Type)
+				or "Default",
+
+			Weight =
+				value.Weight
+
+		}
+
+		fusionCooldown[uuid] = nil
+
+	end
+
+end
+
+--==================================================
+-- BRIDGE
+--==================================================
+
+Bridge.OnClientEvent:Connect(function(...)
+
+	local args = {...}
+
+	if args[1] == "Data"
+	and args[2] == "Manager"
+	and args[3] == "Patch" then
+
+		if type(args[4]) == "table" then
+
+			for _,patch in pairs(args[4]) do
+
+				processPetPatch(patch)
+
+			end
+
+		end
+
+	end
+
+end)
+
+--==================================================
+-- LIMPAR COOLDOWN
+--==================================================
+
+local function limparCooldown()
+
+	for uuid in pairs(fusionCooldown) do
+
+		if not inventoryPets[uuid] then
+
+			fusionCooldown[uuid] = nil
+
+		end
+
+	end
+
+end
+
+--==================================================
+-- GRUPOS
+--==================================================
+
+local function criarGruposFusion()
+
+	local groups = {}
+
+	for uuid,pet in pairs(inventoryPets) do
+
+		if pet
+		and pet.Name
+		and pet.UUID
+		and podeFundir(pet) then
+
+			local nome =
+				tostring(pet.Name)
+
+			local tipo =
+				tostring(
+					pet.Type or "Default"
+				)
+
+			local key =
+				nome.."|"..tipo
+
+			if not groups[key] then
+
+				groups[key] = {
+
+					Name = nome,
+
+					Type = tipo,
+
+					Pets = {}
+
+				}
+
+			end
+
+			table.insert(
+				groups[key].Pets,
+				pet
+			)
+
+		end
+
+	end
+
+	return groups
+
+end
+
+--==================================================
+-- FAZER FUSION
+--==================================================
+
+local function fazerFusion(group)
+
+	if not group then
+		return false
+	end
+
+	if #group.Pets < 3 then
+		return false
+	end
+
+	local p1 =
+		group.Pets[1]
+
+	local p2 =
+		group.Pets[2]
+
+	local p3 =
+		group.Pets[3]
+
+	if not p1
+	or not p2
+	or not p3 then
+
+		return false
+
+	end
+
+	if not podeFundir(p1)
+	or not podeFundir(p2)
+	or not podeFundir(p3) then
+
+		return false
+
+	end
+
+	local uuids = {
+
+		[p1.UUID] = true,
+		[p2.UUID] = true,
+		[p3.UUID] = true
+
+	}
+
+	fusionCooldown[
+		tostring(p1.UUID)
+	] = true
+
+	fusionCooldown[
+		tostring(p2.UUID)
+	] = true
+
+	fusionCooldown[
+		tostring(p3.UUID)
+	] = true
+
+	local sucesso =
+		pcall(function()
+
+			Bridge:FireServer(
+				"General",
+				"FuseMachine",
+				"Fuse",
+				group.Name,
+				uuids
+			)
+
+		end)
+
+	if sucesso then
+
+		fuseStatus.Text =
+			"🔥 FUSÃO: "..group.Name
+
+		fuseStatus.TextColor3 =
+			Color3.fromRGB(255,100,180)
+
+		return true
+
+	end
+
+	fusionCooldown[
+		tostring(p1.UUID)
+	] = nil
+
+	fusionCooldown[
+		tostring(p2.UUID)
+	] = nil
+
+	fusionCooldown[
+		tostring(p3.UUID)
+	] = nil
+
+	return false
+
+end
+
+--==================================================
+-- EXECUTAR FUSION
+--==================================================
+
+local function executarFusion()
+
+	if fusionBusy then
+		return
+	end
+
+	if not autoFuse then
+		return
+	end
+
+	fusionBusy = true
+
+	while autoFuse do
+
+		limparCooldown()
+
+		local groups =
+			criarGruposFusion()
+
+		local fezAlguma = false
+
+		for _,group in pairs(groups) do
+
+			if not autoFuse then
+				break
+			end
+
+			while #group.Pets >= 3
+			and autoFuse do
+
+				local p1 =
+					group.Pets[1]
+
+				local p2 =
+					group.Pets[2]
+
+				local p3 =
+					group.Pets[3]
+
+				if not p1
+				or not p2
+				or not p3 then
+
+					break
+
+				end
+
+				local ok =
+					fazerFusion(group)
+
+				if ok then
+
+					fezAlguma = true
+
+					table.remove(
+						group.Pets,
+						1
+					)
+
+					table.remove(
+						group.Pets,
+						1
+					)
+
+					table.remove(
+						group.Pets,
+						1
+					)
+
+					task.wait(0.35)
+
+				else
+
+					break
+
+				end
+
+			end
+
+		end
+
+		-- IMPORTANTE:
+		-- reconstrói os grupos novamente
+		-- para pegar pets novos
+
+		if fezAlguma then
+
+			task.wait(0.5)
+
+		else
+
+			task.wait(0.4)
+
+		end
+
+	end
+
+	fusionBusy = false
+
+end
+
+--==================================================
+-- FUSION BUTTON
+--==================================================
+
+fuseButton.MouseButton1Click:Connect(function()
+
+	autoFuse =
+		not autoFuse
+
+	if autoFuse then
+
+		fuseButton.Text =
+			"🔥 AUTO FUSION: ON"
+
+		fuseButton.BackgroundColor3 =
+			Color3.fromRGB(35,120,65)
+
+		fuseStatus.Text =
+			"🔥 FUSÃO: PROCURANDO..."
+
+		fuseStatus.TextColor3 =
+			Color3.fromRGB(255,100,180)
+
+		task.spawn(
+			executarFusion
+		)
+
+	else
+
+		fuseButton.Text =
+			"🔥 AUTO FUSION: OFF"
+
+		fuseButton.BackgroundColor3 =
+			Color3.fromRGB(75,25,40)
+
+		fuseStatus.Text =
+			"● FUSÃO: PARADA"
+
+		fuseStatus.TextColor3 =
+			GRAY
+
+	end
+
+end)
+
+--==================================================
+-- GARANTIR FUSION RODANDO
+--==================================================
+
+task.spawn(function()
+
+	while task.wait(0.25) do
+
+		if autoFuse
+		and not fusionBusy then
+
+			task.spawn(
+				executarFusion
+			)
+
+		end
+
+	end
+
+end)
+
+--==================================================
+-- VARIANT
+--==================================================
+
+local function variant(t)
+
+	t =
+		tostring(
+			t or "Default"
+		)
+
+	if t == "Default"
+	or t == "Normal" then
+
+		return "Normal"
+
+	elseif t == "Golden"
+	or t == "Gold" then
+
+		return "Dourado"
+
+	elseif t == "Diamond" then
+
+		return "Diamante"
+
+	elseif t == "Rainbow" then
+
+		return "Rainbow"
+
+	end
+
+	return t
+
+end
+
+--==================================================
+-- REFRESH PETS
+--==================================================
+
+local function refreshPets()
+
+	for _,obj in ipairs(
+		petsPage:GetChildren()
+	) do
+
+		if obj:IsA("TextLabel")
+		and obj ~= petCount then
+
+			obj:Destroy()
+
+		end
+
+	end
+
+	local total = 0
+
+	for _,pet in pairs(inventoryPets) do
+
+		total += 1
+
+		local label =
+			Instance.new("TextLabel")
+
+		label.Size =
+			UDim2.new(
+				1,-8,
+				0,45
+			)
+
+		label.BackgroundColor3 =
+			CARD
+
+		label.TextColor3 =
+			WHITE
+
+		label.TextSize = 10
+
+		label.Font =
+			Enum.Font.GothamBold
+
+		label.TextWrapped = true
+
+		label.ZIndex = 6
+
+		label.Text =
+			"🐾 "..tostring(pet.Name)..
+			" | "..variant(pet.Type)..
+			"\n⚖️ Peso: "..tostring(
+				pet.Weight or "?"
+			)
+
+		label.Parent = petsPage
+
+		Instance.new(
+			"UICorner",
+			label
+		).CornerRadius =
+			UDim.new(0,7)
+
+	end
+
+	petCount.Text =
+		"🐾 PETS NO INVENTÁRIO: "..total
+
+end
+
+task.spawn(function()
+
+	while task.wait(1) do
+
+		pcall(refreshPets)
+
+	end
+
+end)
+
+--==================================================
+-- TABS
+--==================================================
+
+local function selectTab(selected)
+
+	buyPage.Visible =
+		selected == "buy"
+
+	fusePage.Visible =
+		selected == "fuse"
+
+	petsPage.Visible =
+		selected == "pets"
+
+	buyTab.BackgroundColor3 =
+		selected == "buy"
+		and RED2
+		or CARD
+
+	fuseTab.BackgroundColor3 =
+		selected == "fuse"
+		and PURPLE2
+		or CARD
+
+	petsTab.BackgroundColor3 =
+		selected == "pets"
+		and PURPLE2
+		or CARD
+
+end
+
+buyTab.MouseButton1Click:Connect(function()
+
+	selectTab("buy")
+
+end)
+
+fuseTab.MouseButton1Click:Connect(function()
+
+	selectTab("fuse")
+
+end)
+
+petsTab.MouseButton1Click:Connect(function()
+
+	selectTab("pets")
+
+	pcall(refreshPets)
+
+end)
+
+--==================================================
+-- CANVAS
+--==================================================
+
+local function updateCanvas(
+	page,
+	layout
+)
+
+	page.CanvasSize =
+		UDim2.new(
+			0,
+			0,
+			0,
+			layout.AbsoluteContentSize.Y + 10
+		)
+
+end
+
+buyLayout:GetPropertyChangedSignal(
+	"AbsoluteContentSize"
+):Connect(function()
+
+	updateCanvas(
+		buyPage,
+		buyLayout
+	)
+
+end)
+
+fuseLayout:GetPropertyChangedSignal(
+	"AbsoluteContentSize"
+):Connect(function()
+
+	updateCanvas(
+		fusePage,
+		fuseLayout
+	)
+
+end)
+
+petsLayout:GetPropertyChangedSignal(
+	"AbsoluteContentSize"
+):Connect(function()
+
+	updateCanvas(
+		petsPage,
+		petsLayout
+	)
+
+end)
+
+--==================================================
+-- REOPEN
+--==================================================
+
+local reopen = Instance.new("TextButton")
+
+reopen.Size =
+	UDim2.new(0,55,0,55)
+
+reopen.Position =
+	UDim2.new(
+		0,
+		15,
+		0.5,
+		-27
+	)
+
+reopen.BackgroundColor3 =
+	PURPLE2
+
+reopen.Text = "🐾"
+
+reopen.TextSize = 25
+
+reopen.Visible = false
+
+reopen.ZIndex = 50
+
+reopen.Parent = gui
+
+Instance.new(
+	"UICorner",
+	reopen
+).CornerRadius =
+	UDim.new(1,0)
+
+close.MouseButton1Click:Connect(function()
+
+	main.Visible = false
+	reopen.Visible = true
+
+end)
+
+reopen.MouseButton1Click:Connect(function()
+
+	main.Visible = true
+	reopen.Visible = false
+
+end)
+
+--==================================================
+-- INIT
+--==================================================
+
+updateCanvas(
+	buyPage,
+	buyLayout
+)
+
+updateCanvas(
+	fusePage,
+	fuseLayout
+)
+
+updateCanvas(
+	petsPage,
+	petsLayout
+)
+
+selectTab("buy")
+
+print("====================================")
+print("🐾 PET MANAGER CARREGADO")
+print("🛒 AUTO COMPRA")
+print("🟣 SECRET DISPONÍVEL")
+print("⭐ MYTHIC = TODOS OS MYTHICS")
+print("🔥 AUTO FUSION")
+print("🚫 1 KG NÃO FUNDE")
+print("🚫 50.000 KG+ NÃO FUNDE")
+print("⚔️ EQUIP BEST")
+print("🎨 NEON RED + PURPLE")
+print("====================================")
